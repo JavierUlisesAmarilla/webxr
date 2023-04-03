@@ -1,24 +1,12 @@
 import * as THREE from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
-
 import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
 import {
   LookingGlassWebXRPolyfill,
   LookingGlassConfig,
 } from '@lookingglass/webxr'
-import Stats from 'stats-js'
-import TWEEN from '@tweenjs/tween.js'
 import {assertDefined} from '../utils/assert'
-import {
-  BACK_COLOR,
-  FOG_DENSITY,
-  ENABLE_STATS,
-  FOG_COLOR,
-  LIGHT_A_COLOR,
-  LIGHT_B_COLOR,
-  LIGHT_C_COLOR,
-} from '../utils/constants'
-import {getThreeEnv} from '../utils/common'
+import {LIGHT_A_COLOR, LIGHT_B_COLOR, LIGHT_C_COLOR} from '../utils/constants'
 
 
 const config = LookingGlassConfig
@@ -27,7 +15,7 @@ config.numViews = 45
 config.targetY = 0
 config.targetZ = 0
 config.targetDiam = 3
-config.fovy = (40 * Math.PI) / 180
+config.fovy = (14 * Math.PI) / 180
 new LookingGlassWebXRPolyfill()
 
 
@@ -41,16 +29,14 @@ export class World extends THREE.EventDispatcher {
   init = ({domEl}) => {
     assertDefined(domEl, window)
 
-    // Static vars
-    this.domEl = domEl
-    const {aspect, domWidth, domHeight} = getThreeEnv({domEl})
-
-    // Scene
     this.scene = new THREE.Scene()
-    this.scene.background = new THREE.Color(BACK_COLOR)
-    this.scene.fog = new THREE.FogExp2(new THREE.Color(FOG_COLOR), FOG_DENSITY)
 
-    // Lights
+    const cube = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 0.1, 0.1),
+        new THREE.MeshStandardMaterial({color: 'red'}),
+    )
+    this.scene.add(cube)
+
     const lightA = new THREE.DirectionalLight(new THREE.Color(LIGHT_A_COLOR))
     lightA.position.set(1, 1, 1)
     this.scene.add(lightA)
@@ -60,118 +46,30 @@ export class World extends THREE.EventDispatcher {
     const lightC = new THREE.AmbientLight(new THREE.Color(LIGHT_C_COLOR))
     this.scene.add(lightC)
 
-    // Camera
-    this.camera = new THREE.PerspectiveCamera(60, aspect, 0.001, 30)
-    this.camera.position.setZ(10)
-
-    // Renderer
     this.renderer = new THREE.WebGLRenderer({antialias: true})
-    this.renderer.setPixelRatio(window.devicePixelRatio)
-    this.renderer.shadowMap.enabled = false
-    this.renderer.outputEncoding = THREE.sRGBEncoding
-    this.renderer.setSize(domWidth, domHeight)
+    domEl.append(this.renderer.domElement)
     this.renderer.xr.enabled = true
-    domEl.appendChild(this.renderer.domElement)
-    document.body.append(VRButton.createButton(this.renderer))
+
+    this.camera = new THREE.PerspectiveCamera()
+    this.camera.position.z = 3
+
+    this.renderer.setAnimationLoop(() => {
+      cube.rotation.z += 0.01
+      cube.rotation.x += 0.02
+      this.renderer.render(this.scene, this.camera)
+      this.orbitControls.update()
+    })
+    domEl.append(VRButton.createButton(this.renderer))
 
     // Orbit Controls
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement)
 
-    // Stats
-    if (ENABLE_STATS) {
-      this.stats = new Stats()
-      domEl.appendChild(this.stats.dom)
+    const resize = () => {
+      this.renderer.setSize(innerWidth, innerHeight)
+      this.camera.aspect = innerWidth / innerHeight
+      this.camera.updateProjectionMatrix()
     }
-
-    // Main (Custom Mesh)
-    const planeMesh = new THREE.Mesh(
-        new THREE.PlaneGeometry(1, 1),
-        new THREE.MeshStandardMaterial({
-          color: 'red',
-        }),
-    )
-    planeMesh.position.set(-10, 2, 0)
-    this.scene.add(planeMesh)
-    new TWEEN.Tween(planeMesh.position).to(new THREE.Vector3(0, 2, 0), 2000).easing(TWEEN.Easing.Exponential.InOut).start()
-
-    // Main (Instanced Mesh)
-    const planeInstMesh = new THREE.InstancedMesh(
-        new THREE.PlaneGeometry(1, 1),
-        new THREE.MeshStandardMaterial({
-          color: 'green',
-        }),
-        1,
-    )
-    this.scene.add(planeInstMesh)
-    const srcMatrix4 = new THREE.Matrix4().multiplyMatrices(
-        new THREE.Matrix4().setPosition(-10, -2, 0),
-        new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(), 0),
-    )
-    const desMatrix4 = new THREE.Matrix4().multiplyMatrices(
-        new THREE.Matrix4().setPosition(0, -2, 0),
-        new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(), 0),
-    )
-    new TWEEN.Tween(srcMatrix4).to(desMatrix4, 2000).onUpdate(() => {
-      planeInstMesh.setMatrixAt(0, srcMatrix4)
-      planeInstMesh.instanceMatrix.needsUpdate = true
-    }).easing(TWEEN.Easing.Exponential.InOut).start()
-
-    // Animate
-    this.animate()
-
-    // Events
-    window.addEventListener('resize', this.onWindowResize)
-    domEl.addEventListener('mousedown', this.onMouseDown)
-    domEl.addEventListener('mousemove', this.onMouseMove)
-    domEl.addEventListener('mouseup', this.onMouseUp)
-    domEl.addEventListener('mousewheel', this.onMouseWheel)
-  }
-
-
-  animate = () => {
-    requestAnimationFrame((t) => {
-      this.animate()
-      if (this.stats) {
-        this.stats.begin()
-      }
-      TWEEN.update()
-      this.render()
-      if (this.stats) {
-        this.stats.end()
-      }
-    })
-  }
-
-
-  render = () => {
-    this.renderer.render(this.scene, this.camera)
-    this.orbitControls.update()
-  }
-
-
-  onWindowResize = () => {
-    const {domWidth, domHeight, aspect} = getThreeEnv({domEl: this.domEl})
-    this.renderer.setSize(domWidth, domHeight)
-    this.camera.aspect = aspect
-    this.camera.updateProjectionMatrix()
-  }
-
-
-  onMouseDown = (event) => {
-    // TODO
-  }
-
-  onMouseMove = (event) => {
-    // TODO
-  }
-
-
-  onMouseUp = (event) => {
-    // TODO
-  }
-
-
-  onMouseWheel = (event) => {
-    // TODO
+    resize()
+    window.addEventListener('resize', resize)
   }
 }
