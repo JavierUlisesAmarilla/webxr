@@ -43,6 +43,7 @@ export class World extends THREE.EventDispatcher {
 
     // Static vars
     this.domEl = domEl
+    const {aspect, domWidth, domHeight} = getThreeEnv({domEl})
 
     // Scene
     this.scene = new THREE.Scene()
@@ -60,7 +61,6 @@ export class World extends THREE.EventDispatcher {
     this.scene.add(lightC)
 
     // Camera
-    const {domWidth, domHeight, aspect} = getThreeEnv({domEl})
     this.camera = new THREE.PerspectiveCamera(60, aspect, 0.001, 30)
     this.camera.position.setZ(10)
 
@@ -150,7 +150,10 @@ export class World extends THREE.EventDispatcher {
 
 
   onWindowResize = () => {
-    // TODO
+    const {domWidth, domHeight, aspect} = getThreeEnv({domEl: this.domEl})
+    this.renderer.setSize(domWidth, domHeight)
+    this.camera.aspect = aspect
+    this.camera.updateProjectionMatrix()
   }
 
 
