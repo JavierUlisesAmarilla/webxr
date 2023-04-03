@@ -1,5 +1,11 @@
 import * as THREE from 'three'
 import {OrbitControls} from 'three/examples/jsm/controls/OrbitControls'
+
+import {VRButton} from 'three/examples/jsm/webxr/VRButton.js'
+import {
+  LookingGlassWebXRPolyfill,
+  LookingGlassConfig,
+} from '@lookingglass/webxr'
 import Stats from 'stats-js'
 import TWEEN from '@tweenjs/tween.js'
 import {assertDefined} from '../utils/assert'
@@ -13,6 +19,16 @@ import {
   LIGHT_C_COLOR,
 } from '../utils/constants'
 import {getThreeEnv} from '../utils/common'
+
+
+const config = LookingGlassConfig
+config.tileHeight = 512
+config.numViews = 45
+config.targetY = 0
+config.targetZ = 0
+config.targetDiam = 3
+config.fovy = (40 * Math.PI) / 180
+new LookingGlassWebXRPolyfill()
 
 
 /**
@@ -54,7 +70,9 @@ export class World extends THREE.EventDispatcher {
     this.renderer.shadowMap.enabled = false
     this.renderer.outputEncoding = THREE.sRGBEncoding
     this.renderer.setSize(domWidth, domHeight)
+    this.renderer.xr.enabled = true
     domEl.appendChild(this.renderer.domElement)
+    document.body.append(VRButton.createButton(this.renderer))
 
     // Orbit Controls
     this.orbitControls = new OrbitControls(this.camera, this.renderer.domElement)
@@ -74,7 +92,7 @@ export class World extends THREE.EventDispatcher {
     )
     planeMesh.position.set(-10, 2, 0)
     this.scene.add(planeMesh)
-    new TWEEN.Tween(planeMesh.position).to(new THREE.Vector3(10, 2, 0), 2000).easing(TWEEN.Easing.Exponential.InOut).start()
+    new TWEEN.Tween(planeMesh.position).to(new THREE.Vector3(0, 2, 0), 2000).easing(TWEEN.Easing.Exponential.InOut).start()
 
     // Main (Instanced Mesh)
     const planeInstMesh = new THREE.InstancedMesh(
@@ -90,7 +108,7 @@ export class World extends THREE.EventDispatcher {
         new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(), 0),
     )
     const desMatrix4 = new THREE.Matrix4().multiplyMatrices(
-        new THREE.Matrix4().setPosition(10, -2, 0),
+        new THREE.Matrix4().setPosition(0, -2, 0),
         new THREE.Matrix4().makeRotationAxis(new THREE.Vector3(), 0),
     )
     new TWEEN.Tween(srcMatrix4).to(desMatrix4, 2000).onUpdate(() => {
